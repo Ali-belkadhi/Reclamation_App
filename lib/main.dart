@@ -5,13 +5,11 @@ import 'viewmodels/login_viewmodel.dart';
 import 'views/login_view.dart';
 
 void main() {
-  // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Instantiate dependencies (services)
-  final authService = MockAuthService();
+  // Use the real backend API service
+  final authService = ApiAuthService();
 
-  // Instantiate view models
   final loginViewModel = LoginViewModel(authService: authService);
 
   runApp(MyApp(loginViewModel: loginViewModel));

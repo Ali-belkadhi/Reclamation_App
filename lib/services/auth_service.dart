@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/user.dart';
 
 class AuthException implements Exception {
@@ -13,40 +15,41 @@ abstract class AuthService {
   Future<User> login(String email, String password);
 }
 
-class MockAuthService implements AuthService {
+class ApiAuthService implements AuthService {
+  // Use 10.0.2.2 for Android emulator (= localhost on your PC)
+  // Change to your PC local IP (e.g. 192.168.x.x) for a real device
+  static const String _baseUrl = 'http://10.0.2.2:3000';
+
   @override
   Future<User> login(String email, String password) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 1500));
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 10));
 
-    // Simple authentication logic for demonstration
-    final formattedEmail = email.trim().toLowerCase();
-    
-    if (formattedEmail.isEmpty || password.isEmpty) {
-      throw AuthException('Veuillez remplir tous les champs.');
-    }
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
 
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(formattedEmail)) {
-      throw AuthException('Adresse email invalide.');
-    }
-
-    // Mock successful authentication for specific credentials
-    if (formattedEmail == 'attijari@bank.com' && password == 'attijari2026') {
-      return const User(
-        id: 'usr_attijari_123',
-        email: 'attijari@bank.com',
-        name: 'Client Attijari',
-        token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-      );
-    } else if (formattedEmail == 'test@attijari.tn' && password == 'test1234') {
-      return const User(
-        id: 'usr_test_456',
-        email: 'test@attijari.tn',
-        name: 'Utilisateur Test',
-        token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-      );
-    } else {
-      throw AuthException('Identifiants incorrects. Veuillez réessayer.');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Parse user from response: { message: '...', user: {...} }
+        final userJson = data['user'] as Map<String, dynamic>;
+        return User.fromJson(userJson);
+      } else if (response.statusCode == 401) {
+        throw AuthException('Email ou mot de passe incorrect.');
+      } else {
+        final message = data['message'] ?? 'Erreur serveur. Veuillez réessayer.';
+        throw AuthException(message.toString());
+      }
+    } on AuthException {
+      rethrow;
+    } on TimeoutException {
+      throw AuthException('Le serveur ne répond pas. Vérifiez votre connexion.');
+    } catch (e) {
+      throw AuthException('Impossible de joindre le serveur. Vérifiez votre réseau.');
     }
   }
 }
+
