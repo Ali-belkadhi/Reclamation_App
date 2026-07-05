@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../models/user.dart';
 
 class AuthException implements Exception {
@@ -16,16 +17,12 @@ abstract class AuthService {
 }
 
 class ApiAuthService implements AuthService {
-  // Use 10.0.2.2 for Android emulator (= localhost on your PC)
-  // Change to your PC local IP (e.g. 192.168.x.x) for a real device
-  static const String _baseUrl = 'http://10.0.2.2:3000';
-
   @override
   Future<User> login(String email, String password) async {
     try {
       final response = await http
           .post(
-            Uri.parse('$_baseUrl/auth/login'),
+            Uri.parse('${ApiConfig.baseUrl}/auth/login'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'email': email, 'password': password}),
           )

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import '../services/push_notification_service.dart';
 import '../theme/app_theme.dart';
+import 'home_view.dart';
 import '../viewmodels/login_viewmodel.dart';
+import '../main.dart';
 
 class LoginView extends StatefulWidget {
   final LoginViewModel viewModel;
@@ -34,80 +37,35 @@ class _LoginViewState extends State<LoginView> {
     super.dispose();
   }
 
-  void _handleLogin() async {
-    // Hide keyboard
+  Future<void> _handleLogin() async {
     FocusScope.of(context).unfocus();
 
     final success = await widget.viewModel.login();
-    if (success && mounted) {
-      // Display a beautiful success popup
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          icon: const Icon(
-            Icons.check_circle_outline_rounded,
-            color: AppColors.success,
-            size: 60,
-          ),
-          title: const Text(
-            'Connexion Réussie',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Bienvenue, ${widget.viewModel.currentUser?.name} !',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textDark,
+    final user = widget.viewModel.currentUser;
+
+    if (success && user != null) {
+      await PushNotificationService.instance.registerTokenForUser(user.id);
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => HomeView(
+            user: user,
+            onLogout: () {
+              PushNotificationService.instance.clearCurrentUser();
+              widget.viewModel.reset();
+              navigatorKey.currentState?.pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => LoginView(viewModel: widget.viewModel),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Vous êtes connecté avec succès à votre espace Attijari Bank.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textLight,
-                ),
-              ),
-            ],
+                (route) => false,
+              );
+            },
           ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                widget.viewModel.reset();
-                _emailController.clear();
-                _passwordController.clear();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.brandBlack,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-              ),
-              child: const Text('Déconnexion'),
-            ),
-          ],
         ),
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
