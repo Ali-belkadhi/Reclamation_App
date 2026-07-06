@@ -776,14 +776,14 @@ class _HomeViewState extends State<HomeView> {
                 _buildProfileDetailRow(
                   Icons.account_balance_outlined,
                   'Agence',
-                  widget.user.agence ?? 'Non spécifiée',
+                  widget.user.agence?.nom ?? 'Non spécifiée',
                 ),
-                if (widget.user.idEquipe != null) ...[
+                if (widget.user.equipe != null) ...[
                   const Divider(color: AppColors.border, height: 24),
                   _buildProfileDetailRow(
                     Icons.groups_outlined,
                     'ID équipe',
-                    widget.user.idEquipe.toString(),
+                    widget.user.equipe!.nom.toString(),
                   ),
                 ],
               ],
@@ -993,6 +993,7 @@ class _HomeViewState extends State<HomeView> {
         )
         .toList();
     final equipes = options.equipes;
+
     if (users.isEmpty && equipes.isEmpty) {
       _showHomeMessage(context, 'Aucun utilisateur ou équipe à inviter.');
       return;
@@ -1148,7 +1149,7 @@ class _HomeViewState extends State<HomeView> {
                         return DropdownMenuItem<int>(
                           value: equipe.id,
                           child: Text(
-                            equipe.nom,
+                            equipe.nom!,
                             overflow: TextOverflow.ellipsis,
                           ),
                         );
@@ -1312,7 +1313,7 @@ class _HomeViewState extends State<HomeView> {
                         IconButton(
                           tooltip: 'Inviter un participant',
                           icon: const Icon(
-                            Icons.person_add_alt_1_rounded,
+                            Icons.person_add_alt_outlined, // Invite Button in discussion
                             color: AppColors.primaryRed,
                           ),
                           onPressed: () => _showInviteParticipantsSheet(item),
@@ -2097,7 +2098,7 @@ class _HomeViewState extends State<HomeView> {
                         return DropdownMenuItem<int>(
                           value: equipe.id,
                           child: Text(
-                            equipe.nom,
+                            equipe.nom!,
                             overflow: TextOverflow.ellipsis,
                           ),
                         );

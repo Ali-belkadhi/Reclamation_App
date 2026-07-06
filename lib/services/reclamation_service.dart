@@ -216,7 +216,7 @@ class ApiReclamationService implements ReclamationService {
           : <int>[],
       if (agenceId != null) 'agenceId': agenceId,
     };
-
+    print('bodyyyy     '+body.toString());
     final response = await _send(
       () => http
           .post(
@@ -258,7 +258,7 @@ class ApiReclamationService implements ReclamationService {
     } catch (_) {
       // En cas de panne réseau (ex. serveur éteint ou adresse inaccessible)
       throw const ReclamationException(
-        'Impossible de joindre le serveur. Vérifiez votre connexion.',
+        'Reclamation Service : Impossible de joindre le serveur. Vérifiez votre connexion.',
       );
     }
   }

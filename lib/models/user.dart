@@ -1,4 +1,7 @@
 // Représente le modèle de données d'un Utilisateur au sein de l'application
+import 'agence.dart';
+import 'equipe.dart';
+
 class User {
   final String id;
   final String nom;
@@ -7,8 +10,8 @@ class User {
   final String role;
   final String? telephone;
   final String? cin;
-  final String? agence;
-  final int? idEquipe;
+  final Agence? agence;
+  final EquipeOption? equipe;
   final String? image;
 
   const User({
@@ -20,7 +23,7 @@ class User {
     this.telephone,
     this.cin,
     this.agence,
-    this.idEquipe,
+    this.equipe,
     this.image,
   });
 
@@ -38,10 +41,14 @@ class User {
       role: json['role'] as String? ?? 'user',
       telephone: json['telephone'] as String?,
       cin: json['cin'] as String?,
-      agence: json['agence'] as String?,
+      agence: json['agence'] == null
+          ? null
+          :Agence.fromJson(json['agence'] ) as Agence?,
       // Utilise un parseur robuste pour l'identifiant de l'équipe (peut être int, double ou string)
-      idEquipe: _parseIdEquipe(
-        json['idEquipe'] ?? json['equipeId'] ?? json['id_equipe'],
+      equipe: json['equipe'] == null
+          ? null
+          : EquipeOption.fromJson(
+        Map<String, dynamic>.from(json['equipe'] as Map),
       ),
       image: json['image'] as String?,
     );
@@ -58,7 +65,7 @@ class User {
       'telephone': telephone,
       'cin': cin,
       'agence': agence,
-      'idEquipe': idEquipe,
+      'equipe': equipe,
       'image': image,
     };
   }

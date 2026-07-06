@@ -92,7 +92,7 @@ class ApiAgenceService implements AgenceService {
     } on TimeoutException {
       throw const AgenceException('Le serveur ne répond pas. Réessayez plus tard.');
     } catch (_) {
-      throw const AgenceException('Impossible de joindre le serveur. Vérifiez votre connexion.');
+      throw const AgenceException('Agence Service : Impossible de joindre le serveur. Vérifiez votre connexion.');
     }
   }
 }

@@ -88,7 +88,6 @@ class LoginViewModel extends ChangeNotifier {
     // 2. Activation du chargement (affichage d'un indicateur de progression)
     _isLoading = true;
     _errorMessage = null;
-    notifyListeners();
 
     try {
       // 3. Appel asynchrone du service d'authentification API

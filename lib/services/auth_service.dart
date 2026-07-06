@@ -55,7 +55,7 @@ class ApiAuthService implements AuthService {
       throw AuthException('Le serveur ne répond pas. Vérifiez votre connexion.');
     } catch (e) {
       // Erreur réseau générique (pas d'internet, serveur indisponible, etc.)
-      throw AuthException('Impossible de joindre le serveur. Vérifiez votre réseau.');
+      throw AuthException('Auth Service : Impossible de joindre le serveur. Vérifiez votre réseau.');
     }
   }
 }
