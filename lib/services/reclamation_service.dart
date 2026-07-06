@@ -22,6 +22,7 @@ abstract class ReclamationService {
   Future<List<Reclamation>> findAll();
 
   Future<List<ReclamationMessage>> findMessages(String reclamationId);
+  Future<Set<String>> findParticipantUserIds(String reclamationId);
   Future<ReclamationMessage> sendMessage(String reclamationId, {
     required String senderId,
     required String content,
@@ -135,6 +136,28 @@ class ApiReclamationService implements ReclamationService {
     return items
         .map((item) => ReclamationMessage.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<Set<String>> findParticipantUserIds(String reclamationId) async {
+    final response = await _send(
+      () => http
+          .get(
+            Uri.parse(
+              '${ApiConfig.baseUrl}/reclamations/${Uri.encodeComponent(reclamationId)}/participants',
+            ),
+          )
+          .timeout(_timeout),
+    );
+    final items = jsonDecode(response.body) as List<dynamic>;
+    return items
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .map((participant) => participant['user'])
+        .whereType<Map>()
+        .map((user) => user['Id_User'] ?? user['idUser'] ?? user['id'])
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet();
   }
 
   @override

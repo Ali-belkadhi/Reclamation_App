@@ -977,8 +977,12 @@ class _HomeViewState extends State<HomeView> {
     if (item.id.isEmpty) return;
 
     DestinationOptions options;
+    Set<String> participantUserIds;
     try {
       options = await ApiDestinationService().loadOptions();
+      participantUserIds = await _reclamationService.findParticipantUserIds(
+        item.id,
+      );
     } on ReclamationException catch (error) {
       if (mounted) _showHomeMessage(context, error.message);
       return;
@@ -1016,6 +1020,18 @@ class _HomeViewState extends State<HomeView> {
                   (targetType == 'EQUIPE' && selectedEquipeId == null)) {
                 ScaffoldMessenger.of(sheetContext).showSnackBar(
                   const SnackBar(content: Text('Sélectionnez une destination.')),
+                );
+                return;
+              }
+
+              if (targetType == 'USER' &&
+                  participantUserIds.contains(selectedUserId)) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Cet utilisateur existe déjà dans la discussion.',
+                    ),
+                  ),
                 );
                 return;
               }
@@ -1123,10 +1139,25 @@ class _HomeViewState extends State<HomeView> {
                         prefixIcon: Icon(Icons.person_outline_rounded),
                       ),
                       items: users.map((user) {
+                        final alreadyExists = participantUserIds.contains(
+                          user.id,
+                        );
                         return DropdownMenuItem<String>(
                           value: user.id,
-                          child: Text(
-                            user.name,
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: user.name),
+                                if (alreadyExists)
+                                  const TextSpan(
+                                    text: '  Existe',
+                                    style: TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                              ],
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         );
@@ -1162,7 +1193,11 @@ class _HomeViewState extends State<HomeView> {
                     ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
-                    onPressed: isSubmitting ? null : submitInvitation,
+                    onPressed: isSubmitting ||
+                            (targetType == 'USER' &&
+                                participantUserIds.contains(selectedUserId))
+                        ? null
+                        : submitInvitation,
                     icon: isSubmitting
                         ? const SizedBox(
                             width: 18,
