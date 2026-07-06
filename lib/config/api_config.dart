@@ -1,7 +1,7 @@
 class ApiConfig {
-  ApiConfig._();
+  ApiConfig._(); // Constructeur privé pour empêcher l'instanciation de cette classe utilitaire.
 
-  // Android emulator: 10.0.2.2 points to the development computer.
-  // Replace it with the computer's local IP when using a physical device.
+  // Pour l'émulateur Android : '10.0.2.2' pointe vers la machine de développement locale (localhost).
+  // Si vous utilisez un appareil physique, remplacez cette adresse par l'adresse IP locale de votre ordinateur.
   static const String baseUrl = 'http://10.0.2.2:3000';
 }

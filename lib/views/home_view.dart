@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 import '../config/api_config.dart';
+import '../models/equipe.dart';
 import '../models/reclamation.dart';
 import '../models/user.dart';
 import '../models/message_model.dart';
 import '../services/reclamation_service.dart';
+import '../services/destination_service.dart';
 import '../theme/app_theme.dart';
 import 'agence_view.dart';
 
@@ -92,27 +94,35 @@ class _HomeViewState extends State<HomeView> {
     });
   }
 
+  // Charge les réclamations liées à l'utilisateur depuis l'API backend
   Future<void> _loadReceivedComplaints() async {
+    // 1. Met à jour l'état de l'application : active l'affichage du chargement (spinner) et réinitialise l'erreur
     setState(() {
       _isLoadingReceivedComplaints = true;
       _receivedComplaintsError = null;
     });
     try {
-      // Tous les roles : uniquement les reclamations de l'utilisateur
-      // (celles qu'il a envoyees OU recues)
+      // 2. Appel asynchrone du service pour récupérer la liste des réclamations
+      // (celles que l'utilisateur a soit créées/envoyées, soit reçues)
       final reclamations = await _reclamationService.findByUser(widget.user.id);
-      if (!mounted) return;
+      
+      if (!mounted) return; // Sécurité : si l'écran a été fermé entre-temps, on arrête
+      
+      // 3. Si succès : convertit la liste brute des réclamations en modèle d'affichage (UI),
+      // puis désactive l'état de chargement
       setState(() {
         _mockComplaints = reclamations.map(_toComplaintItem).toList();
         _isLoadingReceivedComplaints = false;
       });
     } on ReclamationException catch (error) {
+      // En cas d'erreur attendue (ex: erreur de sérialisation ou retournée par l'API)
       if (!mounted) return;
       setState(() {
-        _receivedComplaintsError = error.message;
+        _receivedComplaintsError = error.message; // Stocke le message d'erreur pour l'afficher à l'écran
         _isLoadingReceivedComplaints = false;
       });
     } catch (_) {
+      // En cas d'erreur inattendue (ex: panne réseau totale)
       if (!mounted) return;
       setState(() {
         _receivedComplaintsError = 'Impossible de joindre le serveur.';
@@ -172,6 +182,9 @@ class _HomeViewState extends State<HomeView> {
     setState(() {
       _selectedIndex = index;
     });
+    if (index == 1) {
+      _loadReceivedComplaints();
+    }
   }
 
   bool get _isAdmin => widget.user.role.trim().toLowerCase() == 'admin';
@@ -765,12 +778,12 @@ class _HomeViewState extends State<HomeView> {
                   'Agence',
                   widget.user.agence ?? 'Non spécifiée',
                 ),
-                if (widget.user.departementId != null) ...[
+                if (widget.user.idEquipe != null) ...[
                   const Divider(color: AppColors.border, height: 24),
                   _buildProfileDetailRow(
-                    Icons.business_outlined,
-                    'Département ID',
-                    widget.user.departementId!,
+                    Icons.groups_outlined,
+                    'ID équipe',
+                    widget.user.idEquipe.toString(),
                   ),
                 ],
               ],
@@ -960,6 +973,220 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  Future<void> _showInviteParticipantsSheet(_ComplaintItem item) async {
+    if (item.id.isEmpty) return;
+
+    DestinationOptions options;
+    try {
+      options = await ApiDestinationService().loadOptions();
+    } on ReclamationException catch (error) {
+      if (mounted) _showHomeMessage(context, error.message);
+      return;
+    }
+    if (!mounted) return;
+
+    final users = options.users
+        .where(
+          (user) =>
+              user.role.trim().toLowerCase() == 'employee_s' &&
+              user.id != widget.user.id,
+        )
+        .toList();
+    final equipes = options.equipes;
+    if (users.isEmpty && equipes.isEmpty) {
+      _showHomeMessage(context, 'Aucun utilisateur ou équipe à inviter.');
+      return;
+    }
+
+    String targetType = users.isNotEmpty ? 'USER' : 'EQUIPE';
+    String? selectedUserId = users.isEmpty ? null : users.first.id;
+    int? selectedEquipeId = equipes.isEmpty ? null : equipes.first.id;
+    bool isSubmitting = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            Future<void> submitInvitation() async {
+              if ((targetType == 'USER' && selectedUserId == null) ||
+                  (targetType == 'EQUIPE' && selectedEquipeId == null)) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(content: Text('Sélectionnez une destination.')),
+                );
+                return;
+              }
+
+              setSheetState(() => isSubmitting = true);
+              try {
+                await _reclamationService.inviteParticipants(
+                  item.id,
+                  inviterId: widget.user.id,
+                  targetType: targetType,
+                  userId: targetType == 'USER' ? selectedUserId : null,
+                  equipeId: targetType == 'EQUIPE' ? selectedEquipeId : null,
+                );
+                if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                if (mounted) {
+                  _showHomeMessage(
+                    context,
+                    targetType == 'EQUIPE'
+                        ? 'Les membres de l’équipe ont été invités.'
+                        : 'L’utilisateur a été invité.',
+                  );
+                }
+              } on ReclamationException catch (error) {
+                if (!sheetContext.mounted) return;
+                setSheetState(() => isSubmitting = false);
+                ScaffoldMessenger.of(
+                  sheetContext,
+                ).showSnackBar(SnackBar(content: Text(error.message)));
+              }
+            }
+
+            return Container(
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                18,
+                20,
+                MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.person_add_alt_1_rounded,
+                        color: AppColors.primaryRed,
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Inviter à la discussion',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: isSubmitting
+                            ? null
+                            : () => Navigator.of(sheetContext).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: AppColors.border),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    children: [
+                      if (users.isNotEmpty)
+                        ChoiceChip(
+                          label: const Text('Utilisateur EMPLOYEE_S'),
+                          selected: targetType == 'USER',
+                          onSelected: isSubmitting
+                              ? null
+                              : (_) {
+                                  setSheetState(() => targetType = 'USER');
+                                },
+                        ),
+                      if (equipes.isNotEmpty)
+                        ChoiceChip(
+                          label: const Text('Équipe'),
+                          selected: targetType == 'EQUIPE',
+                          onSelected: isSubmitting
+                              ? null
+                              : (_) {
+                                  setSheetState(() => targetType = 'EQUIPE');
+                                },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (targetType == 'USER')
+                    DropdownButtonFormField<String>(
+                      value: selectedUserId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Utilisateur à inviter',
+                        prefixIcon: Icon(Icons.person_outline_rounded),
+                      ),
+                      items: users.map((user) {
+                        return DropdownMenuItem<String>(
+                          value: user.id,
+                          child: Text(
+                            user.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: isSubmitting
+                          ? null
+                          : (value) {
+                              setSheetState(() => selectedUserId = value);
+                            },
+                    )
+                  else
+                    DropdownButtonFormField<int>(
+                      value: selectedEquipeId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Équipe à inviter',
+                        prefixIcon: Icon(Icons.groups_outlined),
+                      ),
+                      items: equipes.map((equipe) {
+                        return DropdownMenuItem<int>(
+                          value: equipe.id,
+                          child: Text(
+                            equipe.nom,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: isSubmitting
+                          ? null
+                          : (value) {
+                              setSheetState(() => selectedEquipeId = value);
+                            },
+                    ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: isSubmitting ? null : submitInvitation,
+                    icon: isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.person_add_alt_1_rounded),
+                    label: const Text('INVITER'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryRed,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
   void _showReclamationDiscussion(_ComplaintItem item) {
     final msgController = TextEditingController();
     final ScrollController scrollController = ScrollController();
@@ -1081,6 +1308,15 @@ class _HomeViewState extends State<HomeView> {
                         icon: const Icon(Icons.arrow_back_ios_new_rounded),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
+                      if (widget.user.role.trim().toLowerCase() == 'employee_s')
+                        IconButton(
+                          tooltip: 'Inviter un participant',
+                          icon: const Icon(
+                            Icons.person_add_alt_1_rounded,
+                            color: AppColors.primaryRed,
+                          ),
+                          onPressed: () => _showInviteParticipantsSheet(item),
+                        ),
                       CircleAvatar(
                         radius: 18,
                         backgroundColor: AppColors.primaryRed.withAlpha(20),
@@ -1359,7 +1595,9 @@ class _HomeViewState extends State<HomeView> {
                                       content: text,
                                     );
                                     setSheetState(() {
-                                      messages.add(newMsg);
+                                      if (!messages.any((message) => message.id == newMsg.id)) {
+                                        messages.add(newMsg);
+                                      }
                                       isSending = false;
                                     });
                                     scrollToBottom();
@@ -1425,6 +1663,7 @@ class _HomeViewState extends State<HomeView> {
                         icon: const Icon(Icons.arrow_back_ios_new_rounded),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
+
                       CircleAvatar(
                         radius: 18,
                         backgroundColor: AppColors.primaryRed.withAlpha(20),
@@ -1586,19 +1825,100 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  void _showNewComplaintSheet(Color primaryColor) {
+  Future<void> _showNewComplaintSheet(Color primaryColor) async {
+    List<EquipeOption> equipes;
+    try {
+      equipes = await ApiDestinationService().loadEquipes();
+    } on ReclamationException catch (error) {
+      if (mounted) _showHomeMessage(context, error.message);
+      return;
+    } catch (_) {
+      if (mounted) {
+        _showHomeMessage(context, 'Impossible de charger les équipes.');
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    if (equipes.isEmpty) {
+      _showHomeMessage(
+        context,
+        'Aucune équipe active n’est disponible comme destinataire.',
+      );
+      return;
+    }
+
     final titleController = TextEditingController();
     final descController = TextEditingController();
     String category = 'Carte bancaire';
     String priority = 'Moyenne';
+    int? selectedEquipeId = equipes.first.id;
+    bool isSubmitting = false;
 
-    showModalBottomSheet(
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
+      builder: (sheetContext) {
         return StatefulBuilder(
-          builder: (context, setSheetState) {
+          builder: (sheetContext, setSheetState) {
+            Future<void> submit() async {
+              final objet = titleController.text.trim();
+              final description = descController.text.trim();
+              if (objet.isEmpty ||
+                  description.isEmpty ||
+                  selectedEquipeId == null) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Veuillez remplir les champs et choisir une équipe.',
+                    ),
+                  ),
+                );
+                return;
+              }
+
+              setSheetState(() => isSubmitting = true);
+              try {
+                final reclamation = await _reclamationService.create(
+                  senderId: widget.user.id,
+                  objet: objet,
+                  type: category,
+                  description: description,
+                  priorite: priority == 'Haute'
+                      ? 'HAUTE'
+                      : (priority == 'Faible' ? 'BASSE' : 'NORMALE'),
+                  destinationType: 'EQUIPE',
+                  destinationId: selectedEquipeId,
+                );
+                if (!mounted) return;
+                setState(() {
+                  _mockComplaints.insert(0, _toComplaintItem(reclamation));
+                });
+                if (sheetContext.mounted) {
+                  Navigator.of(sheetContext).pop();
+                }
+                _showHomeMessage(
+                  context,
+                  'Réclamation ${reclamation.id} envoyée à l’équipe.',
+                );
+              } on ReclamationException catch (error) {
+                if (!sheetContext.mounted) return;
+                setSheetState(() => isSubmitting = false);
+                ScaffoldMessenger.of(
+                  sheetContext,
+                ).showSnackBar(SnackBar(content: Text(error.message)));
+              } catch (_) {
+                if (!sheetContext.mounted) return;
+                setSheetState(() => isSubmitting = false);
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(
+                    content: Text('Impossible d’envoyer la réclamation.'),
+                  ),
+                );
+              }
+            }
+
             return Container(
               decoration: const BoxDecoration(
                 color: AppColors.surface,
@@ -1611,7 +1931,7 @@ class _HomeViewState extends State<HomeView> {
                 24,
                 20,
                 24,
-                MediaQuery.of(context).viewInsets.bottom + 24,
+                MediaQuery.of(sheetContext).viewInsets.bottom + 24,
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -1631,7 +1951,9 @@ class _HomeViewState extends State<HomeView> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.close_rounded),
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: isSubmitting
+                              ? null
+                              : () => Navigator.of(sheetContext).pop(),
                         ),
                       ],
                     ),
@@ -1639,18 +1961,22 @@ class _HomeViewState extends State<HomeView> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: titleController,
+                      enabled: !isSubmitting,
+                      textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         labelText: 'Objet / Titre',
-                        hintText: 'Ex: Carte avalée, Virement non reçu...',
+                        hintText: 'Ex: Carte avalée, virement non reçu…',
                       ),
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: descController,
-                      maxLines: 3,
+                      enabled: !isSubmitting,
+                      minLines: 3,
+                      maxLines: 5,
                       decoration: const InputDecoration(
                         labelText: 'Description détaillée',
-                        hintText: 'Expliquez en détail votre problème...',
+                        hintText: 'Expliquez votre problème en détail…',
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -1671,27 +1997,25 @@ class _HomeViewState extends State<HomeView> {
                         ),
                       ),
                       items:
-                          [
-                                'Carte bancaire',
-                                'Virement/Paiement',
-                                'E-Banking',
-                                'Frais & Tarification',
-                                'Autre',
-                              ]
-                              .map(
-                                (val) => DropdownMenuItem(
-                                  value: val,
-                                  child: Text(val),
-                                ),
-                              )
-                              .toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setSheetState(() {
-                            category = val;
-                          });
-                        }
-                      },
+                          const [
+                            'Carte bancaire',
+                            'Virement/Paiement',
+                            'E-Banking',
+                            'Frais & Tarification',
+                            'Autre',
+                          ].map((value) {
+                            return DropdownMenuItem(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
+                      onChanged: isSubmitting
+                          ? null
+                          : (value) {
+                              if (value != null) {
+                                setSheetState(() => category = value);
+                              }
+                            },
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -1703,21 +2027,21 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     const SizedBox(height: 8),
                     Row(
-                      children: ['Faible', 'Moyenne', 'Haute'].map((pr) {
-                        final isSel = priority == pr;
-                        final prColor = pr == 'Haute'
+                      children: ['Faible', 'Moyenne', 'Haute'].map((value) {
+                        final selected = priority == value;
+                        final color = value == 'Haute'
                             ? AppColors.primaryRed
-                            : (pr == 'Moyenne'
+                            : (value == 'Moyenne'
                                   ? AppColors.secondaryOrange
                                   : AppColors.success);
                         return Padding(
                           padding: const EdgeInsets.only(right: 12),
                           child: InkWell(
-                            onTap: () {
-                              setSheetState(() {
-                                priority = pr;
-                              });
-                            },
+                            onTap: isSubmitting
+                                ? null
+                                : () {
+                                    setSheetState(() => priority = value);
+                                  },
                             borderRadius: BorderRadius.circular(10),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -1725,20 +2049,22 @@ class _HomeViewState extends State<HomeView> {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: isSel
-                                    ? prColor.withAlpha(25)
+                                color: selected
+                                    ? color.withAlpha(25)
                                     : Colors.transparent,
                                 border: Border.all(
-                                  color: isSel ? prColor : AppColors.border,
-                                  width: isSel ? 2 : 1,
+                                  color: selected ? color : AppColors.border,
+                                  width: selected ? 2 : 1,
                                 ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                pr,
+                                value,
                                 style: TextStyle(
-                                  color: isSel ? prColor : AppColors.textLight,
-                                  fontWeight: isSel
+                                  color: selected
+                                      ? color
+                                      : AppColors.textLight,
+                                  fontWeight: selected
                                       ? FontWeight.bold
                                       : FontWeight.normal,
                                 ),
@@ -1748,71 +2074,67 @@ class _HomeViewState extends State<HomeView> {
                         );
                       }).toList(),
                     ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Équipe destinataire',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<int>(
+                      value: selectedEquipeId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.groups_outlined),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                      items: equipes.map((equipe) {
+                        return DropdownMenuItem<int>(
+                          value: equipe.id,
+                          child: Text(
+                            equipe.nom,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: isSubmitting
+                          ? null
+                          : (value) {
+                              setSheetState(() => selectedEquipeId = value);
+                            },
+                    ),
                     const SizedBox(height: 24),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,
+                        disabledBackgroundColor: primaryColor.withAlpha(140),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () {
-                        if (titleController.text.trim().isEmpty ||
-                            descController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Veuillez remplir tous les champs obligatoires.',
+                      onPressed: isSubmitting ? null : submit,
+                      child: isSubmitting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'SOUMETTRE LA RÉCLAMATION',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
                             ),
-                          );
-                          return;
-                        }
-
-                        final newId =
-                            'REQ-2026-${1300 + _mockComplaints.length}';
-                        final newIcon = category == 'Carte bancaire'
-                            ? Icons.credit_card_rounded
-                            : (category == 'E-Banking'
-                                  ? Icons.computer_rounded
-                                  : Icons.description_rounded);
-                        final newStatus = priority == 'Haute'
-                            ? 'Urgent'
-                            : 'En cours';
-                        final statColor = priority == 'Haute'
-                            ? AppColors.primaryRed
-                            : (priority == 'Moyenne'
-                                  ? AppColors.secondaryOrange
-                                  : AppColors.success);
-
-                        setState(() {
-                          _mockComplaints.insert(
-                            0,
-                            _ComplaintItem(
-                              titleController.text,
-                              '$newId - Créé par ${widget.user.name}',
-                              newStatus,
-                              statColor,
-                              newIcon,
-                            ),
-                          );
-                        });
-
-                        Navigator.of(context).pop();
-
-                        _showHomeMessage(
-                          context,
-                          'Réclamation enregistrée avec succès sous la référence $newId.',
-                        );
-                      },
-                      child: const Text(
-                        'SOUMETTRE LA RÉCLAMATION',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -1822,6 +2144,9 @@ class _HomeViewState extends State<HomeView> {
         );
       },
     );
+
+    titleController.dispose();
+    descController.dispose();
   }
 }
 

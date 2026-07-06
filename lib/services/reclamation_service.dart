@@ -28,11 +28,20 @@ abstract class ReclamationService {
     String messageType = 'TEXT',
   });
 
+  Future<void> inviteParticipants(
+    String reclamationId, {
+    required String inviterId,
+    required String targetType,
+    String? userId,
+    int? equipeId,
+  });
+
   Future<Reclamation> create({
     required String senderId,
     required String objet,
     required String type,
     required String description,
+    String priorite = 'NORMALE',
     required String destinationType,
     String? receiverId,
     int? destinationId,
@@ -41,11 +50,15 @@ abstract class ReclamationService {
 }
 
 class ApiReclamationService implements ReclamationService {
+  // Durée maximale d'attente pour une réponse du serveur (10 secondes)
   static const _timeout = Duration(seconds: 10);
+  
+  // En-têtes HTTP par défaut envoyés avec les requêtes
   static const _headers = {'Content-Type': 'application/json; charset=utf-8'};
 
   @override
   Future<List<Reclamation>> findReceivedByUser(String idUser) async {
+    // 1. Envoi de la requête GET au serveur pour récupérer les réclamations reçues par l'utilisateur
     final response = await _send(
       () => http
           .get(
@@ -55,7 +68,11 @@ class ApiReclamationService implements ReclamationService {
           )
           .timeout(_timeout),
     );
+    
+    // 2. Décodage de la réponse JSON brute en une liste d'éléments dynamiques
     final items = jsonDecode(response.body) as List<dynamic>;
+    
+    // 3. Transformation de la liste JSON en une liste d'objets typés Reclamation et retour du résultat
     return items
         .map((item) => Reclamation.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -63,6 +80,7 @@ class ApiReclamationService implements ReclamationService {
 
   @override
   Future<List<Reclamation>> findAll() async {
+    // 1. Envoi de la requête GET pour récupérer toutes les réclamations de la base
     final response = await _send(
       () => http
           .get(
@@ -70,7 +88,11 @@ class ApiReclamationService implements ReclamationService {
           )
           .timeout(_timeout),
     );
+    
+    // 2. Décodage de la réponse JSON brute
     final items = jsonDecode(response.body) as List<dynamic>;
+    
+    // 3. Transformation et conversion vers le modèle Reclamation
     return items
         .map((item) => Reclamation.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -78,6 +100,7 @@ class ApiReclamationService implements ReclamationService {
 
   @override
   Future<List<Reclamation>> findByUser(String idUser) async {
+    // 1. Envoi de la requête GET pour récupérer les réclamations créées OU reçues par l'utilisateur
     final response = await _send(
       () => http
           .get(
@@ -87,7 +110,11 @@ class ApiReclamationService implements ReclamationService {
           )
           .timeout(_timeout),
     );
+    
+    // 2. Décodage de la réponse JSON brute
     final items = jsonDecode(response.body) as List<dynamic>;
+    
+    // 3. Transformation et conversion vers le modèle Reclamation
     return items
         .map((item) => Reclamation.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -137,11 +164,38 @@ class ApiReclamationService implements ReclamationService {
   }
 
   @override
+  Future<void> inviteParticipants(
+    String reclamationId, {
+    required String inviterId,
+    required String targetType,
+    String? userId,
+    int? equipeId,
+  }) async {
+    await _send(
+      () => http
+          .post(
+            Uri.parse(
+              '${ApiConfig.baseUrl}/reclamations/${Uri.encodeComponent(reclamationId)}/participants/invite',
+            ),
+            headers: _headers,
+            body: jsonEncode({
+              'inviterId': inviterId,
+              'targetType': targetType,
+              if (userId != null) 'userId': userId,
+              if (equipeId != null) 'equipeId': equipeId,
+            }),
+          )
+          .timeout(_timeout),
+    );
+  }
+
+  @override
   Future<Reclamation> create({
     required String senderId,
     required String objet,
     required String type,
     required String description,
+    String priorite = 'NORMALE',
     required String destinationType,
     String? receiverId,
     int? destinationId,
@@ -153,6 +207,7 @@ class ApiReclamationService implements ReclamationService {
       'objet': objet,
       'type': type,
       'statut': 'NOUVELLE',
+      'priorite': priorite,
       'description': description,
       'destinationType': destinationType,
       'receiverIds': isUser && receiverId != null ? [receiverId] : <String>[],
@@ -176,13 +231,18 @@ class ApiReclamationService implements ReclamationService {
     );
   }
 
+  // Méthode utilitaire générique de gestion d'envois HTTP avec gestion des exceptions et erreurs
   Future<http.Response> _send(Future<http.Response> Function() request) async {
     try {
+      // 1. Exécute la requête passée en paramètre
       final response = await request();
+      
+      // 2. Si le code HTTP indique un succès (2xx), retourne directement la réponse
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return response;
       }
 
+      // 3. Sinon (erreurs 4xx ou 5xx), extrait le message d'erreur renvoyé par le backend
       String message = 'Une erreur est survenue.';
       try {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -190,10 +250,13 @@ class ApiReclamationService implements ReclamationService {
       } catch (_) {}
       throw ReclamationException(message);
     } on ReclamationException {
+      // Relance l'exception personnalisée ReclamationException
       rethrow;
     } on TimeoutException {
+      // En cas de dépassement du délai de connexion (10s)
       throw const ReclamationException('Le serveur ne répond pas.');
     } catch (_) {
+      // En cas de panne réseau (ex. serveur éteint ou adresse inaccessible)
       throw const ReclamationException(
         'Impossible de joindre le serveur. Vérifiez votre connexion.',
       );
