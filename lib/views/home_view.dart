@@ -11,6 +11,10 @@ import '../services/reclamation_service.dart';
 import '../services/destination_service.dart';
 import '../theme/app_theme.dart';
 import 'agence_view.dart';
+import 'notification_view.dart';
+import 'reclamations_view.dart';
+import 'messages_view.dart';
+import 'profil_view.dart';
 
 void _showHomeMessage(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
@@ -36,37 +40,35 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   int _selectedIndex = 0;
-  String _searchQuery = '';
-  String _statusFilter = 'Tous';
   late final ReclamationService _reclamationService;
-  late List<_ComplaintItem> _mockComplaints;
+  late List<ComplaintItem> _mockComplaints;
   bool _isLoadingReceivedComplaints = false;
   String? _receivedComplaintsError;
   int _unreadNotificationCount = 0;
 
-  final List<_ConversationItem> _mockChats = [
-    _ConversationItem(
+  final List<ConversationItem> _mockChats = [
+    ConversationItem(
       'Support Technique',
       'Votre réclamation REQ-2026-1291 a été mise à jour.',
       '09:24',
       true,
       1,
     ),
-    _ConversationItem(
+    ConversationItem(
       'Agence Casa Finance City',
       'Bonjour, nous avons bien reçu les pièces justificatives.',
       'Hier',
       false,
       0,
     ),
-    _ConversationItem(
+    ConversationItem(
       'Ahmed Benali (Client)',
       'Pouvez-vous vérifier le statut de mon virement svp ?',
       '24 Juin',
       true,
       2,
     ),
-    _ConversationItem(
+    ConversationItem(
       'Service Qualité',
       'Merci pour votre retour. Le problème est résolu.',
       '22 Juin',
@@ -79,7 +81,7 @@ class _HomeViewState extends State<HomeView> {
   void initState() {
     super.initState();
     _reclamationService = ApiReclamationService();
-    _mockComplaints = <_ComplaintItem>[];
+    _mockComplaints = <ComplaintItem>[];
     _loadReceivedComplaints();
     _loadNotificationCount();
   }
@@ -131,7 +133,7 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  _ComplaintItem _toComplaintItem(Reclamation reclamation) {
+  ComplaintItem _toComplaintItem(Reclamation reclamation) {
     final shortId = reclamation.id.length > 8
         ? reclamation.id.substring(0, 8).toUpperCase()
         : reclamation.id.toUpperCase();
@@ -139,7 +141,7 @@ class _HomeViewState extends State<HomeView> {
         ? reclamation.sender!.fullName
         : 'Utilisateur';
     final status = _displayStatus(reclamation.statut);
-    return _ComplaintItem(
+    return ComplaintItem(
       reclamation.objet,
       'REC-$shortId - De $senderName',
       status,
@@ -189,112 +191,6 @@ class _HomeViewState extends State<HomeView> {
 
   bool get _isAdmin => widget.user.role.trim().toLowerCase() == 'admin';
 
-  void _showNotificationsPanel(Color primaryColor) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.5,
-          maxChildSize: 0.85,
-          builder: (_, scrollCtrl) => Column(
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Icon(Icons.notifications_rounded, color: primaryColor),
-                    const SizedBox(width: 10),
-                    const Text(
-                      'Notifications',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Divider(),
-              Expanded(
-                child: _mockComplaints.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.notifications_off_outlined,
-                                size: 48, color: AppColors.textLight),
-                            SizedBox(height: 8),
-                            Text(
-                              'Aucune notification',
-                              style: TextStyle(color: AppColors.textLight),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.separated(
-                        controller: scrollCtrl,
-                        itemCount: _mockComplaints.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(height: 1, color: AppColors.border),
-                        itemBuilder: (_, idx) {
-                          final item = _mockComplaints[idx];
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: primaryColor.withAlpha(30),
-                              child: Icon(item.icon, color: primaryColor, size: 20),
-                            ),
-                            title: Text(
-                              item.title,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 14),
-                            ),
-                            subtitle: Text(
-                              item.meta,
-                              style: const TextStyle(
-                                  color: AppColors.textLight, fontSize: 12),
-                            ),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: _statusColor(item.status).withAlpha(30),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                item.status,
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: _statusColor(item.status),
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -316,7 +212,7 @@ class _HomeViewState extends State<HomeView> {
                         MaterialPageRoute(builder: (_) => const AgenceView()),
                       )
                     : null,
-                onNotificationPressed: () => _showNotificationsPanel(config.primaryColor),
+                onNotificationPressed: () => NotificationView.show(context, config.primaryColor, _mockComplaints),
               ),
             ),
             Expanded(child: _buildCurrentTabContent(config)),
@@ -337,11 +233,26 @@ class _HomeViewState extends State<HomeView> {
       case 0:
         return _buildAccueilTab(config);
       case 1:
-        return _buildReclamationsTab(config);
+        return ReclamationsView(
+          primaryColor: config.primaryColor,
+          mockComplaints: _mockComplaints,
+          isLoading: _isLoadingReceivedComplaints,
+          error: _receivedComplaintsError,
+          onRefresh: _loadReceivedComplaints,
+          onComplaintTapped: _showComplaintDetail,
+        );
       case 2:
-        return _buildMessagesTab(config.primaryColor);
+        return MessagesView(
+          primaryColor: config.primaryColor,
+          mockChats: _mockChats,
+          onChatTapped: _showChatConversation,
+        );
       case 3:
-        return _buildProfilTab(config.primaryColor);
+        return ProfilView(
+          user: widget.user,
+          onLogout: widget.onLogout,
+          primaryColor: config.primaryColor,
+        );
       default:
         return _buildAccueilTab(config);
     }
@@ -414,7 +325,7 @@ class _HomeViewState extends State<HomeView> {
             )
           else
             ..._mockComplaints.take(3).map(
-              (item) => _ComplaintTile(
+              (item) => ComplaintTile(
                 item: item,
                 onTap: () => _showComplaintDetail(item),
               ),
@@ -432,433 +343,10 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _buildReclamationsTab(_DashboardConfig config) {
-    final filtered = (_mockComplaints).where((item) {
-      final q = _searchQuery.toLowerCase();
-      final titleMatch = item.title.toLowerCase().contains(q);
-      final metaMatch = item.meta.toLowerCase().contains(q);
-      final statusMatch = item.status.toLowerCase().contains(q);
 
-      if (_statusFilter != 'Tous') {
-        final itemStatus = item.status.trim().toLowerCase();
-        final selectedFilter = _statusFilter.trim().toLowerCase();
-        if (selectedFilter == 'en cours' && itemStatus != 'en cours') {
-          return false;
-        }
-        if (selectedFilter == 'résolues' &&
-            (itemStatus != 'resolue' && itemStatus != 'résolue')) {
-          return false;
-        }
-        if (selectedFilter == 'urgents/a traiter' &&
-            (itemStatus != 'urgent' && itemStatus != 'a traiter')) {
-          return false;
-        }
-      }
 
-      return titleMatch || metaMatch || statusMatch;
-    }).toList();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Liste des Réclamations',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            onChanged: (val) {
-              setState(() {
-                _searchQuery = val;
-              });
-            },
-            decoration: InputDecoration(
-              hintText: 'Rechercher une réclamation...',
-              prefixIcon: const Icon(Icons.search, color: AppColors.textLight),
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: ['Tous', 'En cours', 'Résolues', 'Urgents/A traiter']
-                  .map((filter) {
-                    final isSelected = _statusFilter == filter;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(filter),
-                        selected: isSelected,
-                        onSelected: (val) {
-                          if (val) {
-                            setState(() {
-                              _statusFilter = filter;
-                            });
-                          }
-                        },
-                        selectedColor: config.primaryColor.withAlpha(40),
-                        labelStyle: TextStyle(
-                          color: isSelected
-                              ? config.primaryColor
-                              : AppColors.textLight,
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(
-                            color: isSelected
-                                ? config.primaryColor
-                                : AppColors.border,
-                          ),
-                        ),
-                      ),
-                    );
-                  })
-                  .toList(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: _isLoadingReceivedComplaints
-                ? const Center(child: CircularProgressIndicator())
-                : _receivedComplaintsError != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.cloud_off_rounded,
-                          color: AppColors.textLight,
-                          size: 42,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _receivedComplaintsError!,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 12),
-                        FilledButton.icon(
-                          onPressed: _loadReceivedComplaints,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Réessayer'),
-                        ),
-                      ],
-                    ),
-                  )
-                : filtered.isEmpty
-                ? const Center(
-                    child: Text(
-                      'Aucune réclamation reçue',
-                      style: TextStyle(
-                        color: AppColors.textLight,
-                        fontSize: 14,
-                      ),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _loadReceivedComplaints,
-                    child: ListView.builder(
-                      itemCount: filtered.length,
-                      itemBuilder: (context, idx) {
-                        final item = filtered[idx];
-                        return _ComplaintTile(
-                          item: item,
-                          onTap: () => _showComplaintDetail(item),
-                        );
-                      },
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessagesTab(Color primaryColor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Messages',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Expanded(
-            child: ListView.separated(
-              itemCount: _mockChats.length,
-              separatorBuilder: (context, index) =>
-                  const Divider(color: AppColors.border, height: 1),
-              itemBuilder: (context, index) {
-                final chat = _mockChats[index];
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(vertical: 6),
-                  leading: CircleAvatar(
-                    backgroundColor: primaryColor.withAlpha(25),
-                    child: Icon(
-                      chat.isGroup
-                          ? Icons.support_agent_rounded
-                          : Icons.person_rounded,
-                      color: primaryColor,
-                    ),
-                  ),
-                  title: Text(
-                    chat.title,
-                    style: TextStyle(
-                      fontWeight: chat.unreadCount > 0
-                          ? FontWeight.w800
-                          : FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                  subtitle: Text(
-                    chat.lastMessage,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: chat.unreadCount > 0
-                          ? AppColors.textDark
-                          : AppColors.textLight,
-                      fontSize: 12,
-                      fontWeight: chat.unreadCount > 0
-                          ? FontWeight.w500
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        chat.time,
-                        style: const TextStyle(
-                          color: AppColors.textLight,
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      if (chat.unreadCount > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: primaryColor,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${chat.unreadCount}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  onTap: () => _showChatConversation(chat),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfilTab(Color primaryColor) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          const SizedBox(height: 10),
-          Center(
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 46,
-                  backgroundColor: primaryColor.withAlpha(20),
-                  child: Text(
-                    widget.user.prenom.isNotEmpty
-                        ? '${widget.user.prenom[0]}${widget.user.nom[0]}'
-                              .toUpperCase()
-                        : widget.user.nom.substring(0, 2).toUpperCase(),
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  widget.user.name,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withAlpha(25),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    widget.user.role.toUpperCase(),
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border.withAlpha(140)),
-            ),
-            child: Column(
-              children: [
-                _buildProfileDetailRow(
-                  Icons.email_outlined,
-                  'Adresse e-mail',
-                  widget.user.email,
-                ),
-                const Divider(color: AppColors.border, height: 24),
-                _buildProfileDetailRow(
-                  Icons.phone_iphone_outlined,
-                  'Téléphone',
-                  widget.user.telephone ?? 'Non spécifié',
-                ),
-                const Divider(color: AppColors.border, height: 24),
-                _buildProfileDetailRow(
-                  Icons.badge_outlined,
-                  'CIN',
-                  widget.user.cin ?? 'Non spécifié',
-                ),
-                const Divider(color: AppColors.border, height: 24),
-                _buildProfileDetailRow(
-                  Icons.account_balance_outlined,
-                  'Agence',
-                  widget.user.agence?.nom ?? 'Non spécifiée',
-                ),
-                if (widget.user.equipe != null) ...[
-                  const Divider(color: AppColors.border, height: 24),
-                  _buildProfileDetailRow(
-                    Icons.groups_outlined,
-                    'ID équipe',
-                    widget.user.equipe!.nom.toString(),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                debugPrint('Déconnexion cliquée...');
-                widget.onLogout();
-              },
-              icon: const Icon(
-                Icons.logout_rounded,
-                color: AppColors.primaryRed,
-              ),
-              label: const Text(
-                'SE DÉCONNECTER',
-                style: TextStyle(
-                  color: AppColors.primaryRed,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.primaryRed, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileDetailRow(IconData icon, String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: AppColors.textLight, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.textLight,
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: AppColors.textDark,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showComplaintDetail(_ComplaintItem item) {
+  void _showComplaintDetail(ComplaintItem item) {
     showDialog(
       context: context,
       builder: (context) {
@@ -973,7 +461,7 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Future<void> _showInviteParticipantsSheet(_ComplaintItem item) async {
+  Future<void> _showInviteParticipantsSheet(ComplaintItem item) async {
     if (item.id.isEmpty) return;
 
     DestinationOptions options;
@@ -1223,7 +711,7 @@ class _HomeViewState extends State<HomeView> {
       },
     );
   }
-  void _showReclamationDiscussion(_ComplaintItem item) {
+  void _showReclamationDiscussion(ComplaintItem item) {
     final msgController = TextEditingController();
     final ScrollController scrollController = ScrollController();
     List<ReclamationMessage> messages = [];
@@ -1663,7 +1151,7 @@ class _HomeViewState extends State<HomeView> {
     });
   }
 
-  void _showChatConversation(_ConversationItem chat) {
+  void _showChatConversation(ConversationItem chat) {
     final msgController = TextEditingController();
     final List<Map<String, dynamic>> messages = [
       {'sender': 'them', 'text': chat.lastMessage, 'time': 'Aujourd\'hui'},
@@ -2521,94 +2009,6 @@ class _MiniChart extends StatelessWidget {
   }
 }
 
-class _ComplaintTile extends StatelessWidget {
-  final _ComplaintItem item;
-  final VoidCallback? onTap;
-
-  const _ComplaintTile({required this.item, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border.withAlpha(140)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: item.color.withAlpha(20),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(item.icon, color: item.color, size: 19),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        item.meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textLight,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: item.color.withAlpha(18),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    item.status,
-                    style: TextStyle(
-                      color: item.color,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ActivityRow extends StatelessWidget {
   final String text;
 
@@ -2784,7 +2184,7 @@ class _DashboardConfig {
   final Color secondaryColor;
   final bool showChart;
   final List<_DashboardStat> stats;
-  final List<_ComplaintItem> complaints;
+  final List<ComplaintItem> complaints;
   final List<String> activities;
 
   const _DashboardConfig({
@@ -2857,21 +2257,21 @@ class _DashboardConfig {
             ),
           ],
           complaints: [
-            _ComplaintItem(
+            ComplaintItem(
               'Probleme carte bancaire',
               'REQ-2026-1291 - Agence Casa Finance City',
               'En cours',
               AppColors.secondaryOrange,
               Icons.credit_card_rounded,
             ),
-            _ComplaintItem(
+            ComplaintItem(
               'Erreur lors du virement',
               'REQ-2026-1257 - Agence Rabat Centre',
               'Resolue',
               AppColors.success,
               Icons.swap_horiz_rounded,
             ),
-            _ComplaintItem(
+            ComplaintItem(
               'Compte bloque',
               'REQ-2026-1249 - Client prioritaire',
               'Urgent',
@@ -2933,21 +2333,21 @@ class _DashboardConfig {
             ),
           ],
           complaints: [
-            _ComplaintItem(
+            ComplaintItem(
               'Probleme de connexion',
               'REQ-2026-1289 - Haute priorite',
               'A traiter',
               AppColors.primaryRed,
               Icons.wifi_off_rounded,
             ),
-            _ComplaintItem(
+            ComplaintItem(
               'Erreur lors du virement',
               'REQ-2026-1287 - Moyenne priorite',
               'En cours',
               AppColors.secondaryOrange,
               Icons.swap_horiz_rounded,
             ),
-            _ComplaintItem(
+            ComplaintItem(
               'Lenteur de l\'application',
               'REQ-2026-1278 - Moyenne priorite',
               'Resolue',
@@ -3007,21 +2407,21 @@ class _DashboardConfig {
             ),
           ],
           complaints: [
-            _ComplaintItem(
+            ComplaintItem(
               'Probleme carte bancaire',
               'REQ-2026-1291 - Client Ahmed Benali',
               'En cours',
               AppColors.secondaryOrange,
               Icons.credit_card_rounded,
             ),
-            _ComplaintItem(
+            ComplaintItem(
               'Demande de chequier',
               'REQ-2026-1290 - Client Fatima Zahra',
               'En cours',
               AppColors.secondaryOrange,
               Icons.receipt_long_rounded,
             ),
-            _ComplaintItem(
+            ComplaintItem(
               'Virement non recu',
               'REQ-2026-1288 - Client Youssef El Amrani',
               'Resolue',
@@ -3081,14 +2481,14 @@ class _DashboardConfig {
             ),
           ],
           complaints: [
-            _ComplaintItem(
+            ComplaintItem(
               'Suivi reclamation',
               'REQ-2026-1210 - Derniere mise a jour',
               'En cours',
               AppColors.secondaryOrange,
               Icons.description_rounded,
             ),
-            _ComplaintItem(
+            ComplaintItem(
               'Demande traitee',
               'REQ-2026-1198 - Votre agence',
               'Resolue',
@@ -3121,38 +2521,4 @@ class _DashboardStat {
   );
 }
 
-class _ComplaintItem {
-  final String id;
-  final String title;
-  final String meta;
-  final String status;
-  final Color color;
-  final IconData icon;
-  final String? description;
 
-  const _ComplaintItem(
-    this.title,
-    this.meta,
-    this.status,
-    this.color,
-    this.icon, {
-    this.id = '',
-    this.description,
-  });
-}
-
-class _ConversationItem {
-  final String title;
-  final String lastMessage;
-  final String time;
-  final bool isGroup;
-  final int unreadCount;
-
-  const _ConversationItem(
-    this.title,
-    this.lastMessage,
-    this.time,
-    this.isGroup,
-    this.unreadCount,
-  );
-}
