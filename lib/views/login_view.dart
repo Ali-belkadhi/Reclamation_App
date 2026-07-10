@@ -66,6 +66,7 @@ class _LoginViewState extends State<LoginView> {
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -93,10 +94,7 @@ class _LoginViewState extends State<LoginView> {
                       bottomLeft: Radius.circular(40),
                       bottomRight: Radius.circular(40),
                     ),
-                    child: Image.asset(
-                      'assets/attij-2.jpg',
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.asset('assets/attij-2.jpg', fit: BoxFit.cover),
                   ),
                 ),
 
@@ -132,11 +130,16 @@ class _LoginViewState extends State<LoginView> {
                           decoration: BoxDecoration(
                             color: AppColors.error.withAlpha(20),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.error.withAlpha(50)),
+                            border: Border.all(
+                              color: AppColors.error.withAlpha(50),
+                            ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.error_outline, color: AppColors.error),
+                              const Icon(
+                                Icons.error_outline,
+                                color: AppColors.error,
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
@@ -163,7 +166,10 @@ class _LoginViewState extends State<LoginView> {
                         decoration: const InputDecoration(
                           labelText: 'Adresse e-mail',
                           hintText: 'exemple@attijari.tn',
-                          prefixIcon: Icon(Icons.email_outlined, color: AppColors.textLight),
+                          prefixIcon: Icon(
+                            Icons.email_outlined,
+                            color: AppColors.textLight,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -178,7 +184,10 @@ class _LoginViewState extends State<LoginView> {
                         decoration: InputDecoration(
                           labelText: 'Mot de passe',
                           hintText: '••••••••',
-                          prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textLight),
+                          prefixIcon: const Icon(
+                            Icons.lock_outline,
+                            color: AppColors.textLight,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
                               widget.viewModel.isPasswordVisible
@@ -188,14 +197,14 @@ class _LoginViewState extends State<LoginView> {
                             ),
                             onPressed: widget.viewModel.isLoading
                                 ? null
-                                : () => widget.viewModel.togglePasswordVisibility(),
+                                : () => widget.viewModel
+                                      .togglePasswordVisibility(),
                           ),
                         ),
                       ),
                       const SizedBox(height: 12),
 
                       // Forgot Password Link
-
                       const SizedBox(height: 32),
 
                       // Login Button
@@ -213,7 +222,9 @@ class _LoginViewState extends State<LoginView> {
                           ],
                         ),
                         child: ElevatedButton(
-                          onPressed: widget.viewModel.isLoading ? null : _handleLogin,
+                          onPressed: widget.viewModel.isLoading
+                              ? null
+                              : _handleLogin,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,
@@ -243,7 +254,11 @@ class _LoginViewState extends State<LoginView> {
                                       ),
                                     ),
                                     SizedBox(width: 8),
-                                    Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+                                    Icon(
+                                      Icons.arrow_forward,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
                                   ],
                                 ),
                         ),
@@ -262,7 +277,9 @@ class _LoginViewState extends State<LoginView> {
                             ),
                           ),
                           TextButton(
-                            onPressed: widget.viewModel.isLoading ? null : () {},
+                            onPressed: widget.viewModel.isLoading
+                                ? null
+                                : () {},
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.secondaryOrange,
                               padding: EdgeInsets.zero,
@@ -290,5 +307,3 @@ class _LoginViewState extends State<LoginView> {
     );
   }
 }
-
-

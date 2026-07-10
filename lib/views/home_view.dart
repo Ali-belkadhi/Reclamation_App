@@ -14,6 +14,9 @@ import 'agence_view.dart';
 import 'notification_view.dart';
 import 'reclamations_view.dart';
 import 'messages_view.dart';
+import 'reclamation_discussion_view.dart';
+import 'chat_conversation_view.dart';
+import 'new_reclamation_view.dart';
 import 'profil_view.dart';
 
 void _showHomeMessage(BuildContext context, String message) {
@@ -46,31 +49,38 @@ class _HomeViewState extends State<HomeView> {
   String? _receivedComplaintsError;
   int _unreadNotificationCount = 0;
 
+  final List<GlobalKey<NavigatorState>> _navigatorKeys = [
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+  ];
+
   final List<ConversationItem> _mockChats = [
     ConversationItem(
       'Support Technique',
-      'Votre réclamation REQ-2026-1291 a été mise à jour.',
+      'Votre rÃ©clamation REQ-2026-1291 a Ã©tÃ© mise Ã  jour.',
       '09:24',
       true,
       1,
     ),
     ConversationItem(
       'Agence Casa Finance City',
-      'Bonjour, nous avons bien reçu les pièces justificatives.',
+      'Bonjour, nous avons bien reÃ§u les piÃ¨ces justificatives.',
       'Hier',
       false,
       0,
     ),
     ConversationItem(
       'Ahmed Benali (Client)',
-      'Pouvez-vous vérifier le statut de mon virement svp ?',
+      'Pouvez-vous vÃ©rifier le statut de mon virement svp ?',
       '24 Juin',
       true,
       2,
     ),
     ConversationItem(
-      'Service Qualité',
-      'Merci pour votre retour. Le problème est résolu.',
+      'Service QualitÃ©',
+      'Merci pour votre retour. Le problÃ¨me est rÃ©solu.',
       '22 Juin',
       false,
       0,
@@ -96,35 +106,37 @@ class _HomeViewState extends State<HomeView> {
     });
   }
 
-  // Charge les réclamations liées à l'utilisateur depuis l'API backend
+  // Charge les rÃ©clamations liÃ©es Ã  l'utilisateur depuis l'API backend
   Future<void> _loadReceivedComplaints() async {
-    // 1. Met à jour l'état de l'application : active l'affichage du chargement (spinner) et réinitialise l'erreur
+    // 1. Met Ã  jour l'Ã©tat de l'application : active l'affichage du chargement (spinner) et rÃ©initialise l'erreur
     setState(() {
       _isLoadingReceivedComplaints = true;
       _receivedComplaintsError = null;
     });
     try {
-      // 2. Appel asynchrone du service pour récupérer la liste des réclamations
-      // (celles que l'utilisateur a soit créées/envoyées, soit reçues)
+      // 2. Appel asynchrone du service pour rÃ©cupÃ©rer la liste des rÃ©clamations
+      // (celles que l'utilisateur a soit crÃ©Ã©es/envoyÃ©es, soit reÃ§ues)
       final reclamations = await _reclamationService.findByUser(widget.user.id);
-      
-      if (!mounted) return; // Sécurité : si l'écran a été fermé entre-temps, on arrête
-      
-      // 3. Si succès : convertit la liste brute des réclamations en modèle d'affichage (UI),
-      // puis désactive l'état de chargement
+
+      if (!mounted)
+        return; // SÃ©curitÃ© : si l'Ã©cran a Ã©tÃ© fermÃ© entre-temps, on arrÃªte
+
+      // 3. Si succÃ¨s : convertit la liste brute des rÃ©clamations en modÃ¨le d'affichage (UI),
+      // puis dÃ©sactive l'Ã©tat de chargement
       setState(() {
         _mockComplaints = reclamations.map(_toComplaintItem).toList();
         _isLoadingReceivedComplaints = false;
       });
     } on ReclamationException catch (error) {
-      // En cas d'erreur attendue (ex: erreur de sérialisation ou retournée par l'API)
+      // En cas d'erreur attendue (ex: erreur de sÃ©rialisation ou retournÃ©e par l'API)
       if (!mounted) return;
       setState(() {
-        _receivedComplaintsError = error.message; // Stocke le message d'erreur pour l'afficher à l'écran
+        _receivedComplaintsError = error
+            .message; // Stocke le message d'erreur pour l'afficher Ã  l'Ã©cran
         _isLoadingReceivedComplaints = false;
       });
     } catch (_) {
-      // En cas d'erreur inattendue (ex: panne réseau totale)
+      // En cas d'erreur inattendue (ex: panne rÃ©seau totale)
       if (!mounted) return;
       setState(() {
         _receivedComplaintsError = 'Impossible de joindre le serveur.';
@@ -155,15 +167,15 @@ class _HomeViewState extends State<HomeView> {
   String _displayStatus(String value) {
     final status = value.trim().toLowerCase().replaceAll('_', '');
     if (status == 'encours') return 'En cours';
-    if (status == 'resolue' || status == 'resolu') return 'Résolue';
-    if (status == 'nouvelle') return 'À traiter';
+    if (status == 'resolue' || status == 'resolu') return 'RÃ©solue';
+    if (status == 'nouvelle') return 'Ã€ traiter';
     if (status == 'urgent') return 'Urgent';
     return value;
   }
 
   Color _statusColor(String status) {
     final normalized = status.toLowerCase();
-    if (normalized.contains('résolu') || normalized.contains('resolu')) {
+    if (normalized.contains('rÃ©solu') || normalized.contains('resolu')) {
       return AppColors.success;
     }
     if (normalized.contains('urgent') || normalized.contains('traiter')) {
@@ -181,16 +193,19 @@ class _HomeViewState extends State<HomeView> {
   }
 
   void _onTabSelected(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    if (index == 1) {
-      _loadReceivedComplaints();
+    if (_selectedIndex == index) {
+      _navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+      if (index == 1) {
+        _loadReceivedComplaints();
+      }
     }
   }
 
   bool get _isAdmin => widget.user.role.trim().toLowerCase() == 'admin';
-
 
   @override
   Widget build(BuildContext context) {
@@ -208,14 +223,35 @@ class _HomeViewState extends State<HomeView> {
                 config: config,
                 notificationCount: _unreadNotificationCount,
                 onAgencesPressed: _isAdmin
-                    ? () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const AgenceView()),
-                      )
+                    ? () {
+                        _navigatorKeys[_selectedIndex].currentState?.push(
+                          MaterialPageRoute(builder: (_) => const AgenceView()),
+                        );
+                      }
                     : null,
-                onNotificationPressed: () => NotificationView.show(context, config.primaryColor, _mockComplaints),
+                onNotificationPressed: () {
+                  _navigatorKeys[_selectedIndex].currentState?.push(
+                    MaterialPageRoute(
+                      builder: (_) => NotificationView(
+                        primaryColor: config.primaryColor,
+                        mockComplaints: _mockComplaints,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-            Expanded(child: _buildCurrentTabContent(config)),
+            Expanded(
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: [
+                  _buildTabNavigator(0, config),
+                  _buildTabNavigator(1, config),
+                  _buildTabNavigator(2, config),
+                  _buildTabNavigator(3, config),
+                ],
+              ),
+            ),
             _BottomNavigation(
               primaryColor: config.primaryColor,
               selectedIndex: _selectedIndex,
@@ -228,8 +264,19 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _buildCurrentTabContent(_DashboardConfig config) {
-    switch (_selectedIndex) {
+  Widget _buildTabNavigator(int index, _DashboardConfig config) {
+    return Navigator(
+      key: _navigatorKeys[index],
+      onGenerateRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (context) => _getTabContent(index, config),
+        );
+      },
+    );
+  }
+
+  Widget _getTabContent(int index, _DashboardConfig config) {
+    switch (index) {
       case 0:
         return _buildAccueilTab(config);
       case 1:
@@ -303,33 +350,42 @@ class _HomeViewState extends State<HomeView> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.cloud_off_rounded,
-                      color: AppColors.textLight, size: 36),
+                  const Icon(
+                    Icons.cloud_off_rounded,
+                    color: AppColors.textLight,
+                    size: 36,
+                  ),
                   const SizedBox(height: 8),
-                  Text(_receivedComplaintsError!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.textLight)),
+                  Text(
+                    _receivedComplaintsError!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.textLight),
+                  ),
                   const SizedBox(height: 12),
                   FilledButton.icon(
                     onPressed: _loadReceivedComplaints,
                     icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Réessayer'),
+                    label: const Text('RÃ©essayer'),
                   ),
                 ],
               ),
             )
           else if (_mockComplaints.isEmpty)
             const Center(
-              child: Text('Aucune réclamation',
-                  style: TextStyle(color: AppColors.textLight)),
+              child: Text(
+                'Aucune rÃ©clamation',
+                style: TextStyle(color: AppColors.textLight),
+              ),
             )
           else
-            ..._mockComplaints.take(3).map(
-              (item) => ComplaintTile(
-                item: item,
-                onTap: () => _showComplaintDetail(item),
-              ),
-            ),
+            ..._mockComplaints
+                .take(3)
+                .map(
+                  (item) => ComplaintTile(
+                    item: item,
+                    onTap: () => _showComplaintDetail(item),
+                  ),
+                ),
           const SizedBox(height: 18),
           _SectionHeader(
             title: config.activityTitle,
@@ -342,9 +398,6 @@ class _HomeViewState extends State<HomeView> {
       ),
     );
   }
-
-
-
 
   void _showComplaintDetail(ComplaintItem item) {
     showDialog(
@@ -360,7 +413,7 @@ class _HomeViewState extends State<HomeView> {
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'Détails Réclamation',
+                  'DÃ©tails RÃ©clamation',
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                 ),
               ),
@@ -416,7 +469,7 @@ class _HomeViewState extends State<HomeView> {
               const SizedBox(height: 12),
               Text(
                 item.description ??
-                    'Traitement en cours par les équipes techniques.',
+                    'Traitement en cours par les Ã©quipes techniques.',
                 style: const TextStyle(
                   fontSize: 13,
                   height: 1.4,
@@ -441,7 +494,10 @@ class _HomeViewState extends State<HomeView> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryRed,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -487,7 +543,7 @@ class _HomeViewState extends State<HomeView> {
     final equipes = options.equipes;
 
     if (users.isEmpty && equipes.isEmpty) {
-      _showHomeMessage(context, 'Aucun utilisateur ou équipe à inviter.');
+      _showHomeMessage(context, 'Aucun utilisateur ou Ã©quipe Ã  inviter.');
       return;
     }
 
@@ -507,7 +563,9 @@ class _HomeViewState extends State<HomeView> {
               if ((targetType == 'USER' && selectedUserId == null) ||
                   (targetType == 'EQUIPE' && selectedEquipeId == null)) {
                 ScaffoldMessenger.of(sheetContext).showSnackBar(
-                  const SnackBar(content: Text('Sélectionnez une destination.')),
+                  const SnackBar(
+                    content: Text('SÃ©lectionnez une destination.'),
+                  ),
                 );
                 return;
               }
@@ -517,7 +575,7 @@ class _HomeViewState extends State<HomeView> {
                 ScaffoldMessenger.of(sheetContext).showSnackBar(
                   const SnackBar(
                     content: Text(
-                      'Cet utilisateur existe déjà dans la discussion.',
+                      'Cet utilisateur existe dÃ©jÃ  dans la discussion.',
                     ),
                   ),
                 );
@@ -538,8 +596,8 @@ class _HomeViewState extends State<HomeView> {
                   _showHomeMessage(
                     context,
                     targetType == 'EQUIPE'
-                        ? 'Les membres de l’équipe ont été invités.'
-                        : 'L’utilisateur a été invité.',
+                        ? 'Les membres de lâ€™Ã©quipe ont Ã©tÃ© invitÃ©s.'
+                        : 'Lâ€™utilisateur a Ã©tÃ© invitÃ©.',
                   );
                 }
               } on ReclamationException catch (error) {
@@ -575,7 +633,7 @@ class _HomeViewState extends State<HomeView> {
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
-                          'Inviter à la discussion',
+                          'Inviter Ã  la discussion',
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
@@ -607,7 +665,7 @@ class _HomeViewState extends State<HomeView> {
                         ),
                       if (equipes.isNotEmpty)
                         ChoiceChip(
-                          label: const Text('Équipe'),
+                          label: const Text('Ã‰quipe'),
                           selected: targetType == 'EQUIPE',
                           onSelected: isSubmitting
                               ? null
@@ -623,7 +681,7 @@ class _HomeViewState extends State<HomeView> {
                       value: selectedUserId,
                       isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: 'Utilisateur à inviter',
+                        labelText: 'Utilisateur Ã  inviter',
                         prefixIcon: Icon(Icons.person_outline_rounded),
                       ),
                       items: users.map((user) {
@@ -661,7 +719,7 @@ class _HomeViewState extends State<HomeView> {
                       value: selectedEquipeId,
                       isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: 'Équipe à inviter',
+                        labelText: 'Ã‰quipe Ã  inviter',
                         prefixIcon: Icon(Icons.groups_outlined),
                       ),
                       items: equipes.map((equipe) {
@@ -681,7 +739,8 @@ class _HomeViewState extends State<HomeView> {
                     ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
-                    onPressed: isSubmitting ||
+                    onPressed:
+                        isSubmitting ||
                             (targetType == 'USER' &&
                                 participantUserIds.contains(selectedUserId))
                         ? null
@@ -711,641 +770,25 @@ class _HomeViewState extends State<HomeView> {
       },
     );
   }
+
   void _showReclamationDiscussion(ComplaintItem item) {
-    final msgController = TextEditingController();
-    final ScrollController scrollController = ScrollController();
-    List<ReclamationMessage> messages = [];
-    bool isLoading = true;
-    String? errorMsg;
-    StompClient? stompClient;
-    bool isSending = false;
-
-    void scrollToBottom() {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (scrollController.hasClients) {
-          scrollController.animateTo(
-            scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            // Start Stomp Client and fetch messages initially
-            if (stompClient == null && item.id.isNotEmpty) {
-              _reclamationService.findMessages(item.id).then((list) {
-                if (context.mounted) {
-                  setSheetState(() {
-                    messages = list;
-                    isLoading = false;
-                  });
-                  scrollToBottom();
-                }
-              }).catchError((err) {
-                if (context.mounted) {
-                  setSheetState(() {
-                    isLoading = false;
-                    errorMsg = err.toString();
-                  });
-                }
-              });
-
-              // Setup Stomp client for real-time WebSocket connection
-              final wsUrl = ApiConfig.baseUrl
-                  .replaceAll('http://', 'ws://')
-                  .replaceAll('https://', 'wss://') + '/ws';
-              
-              stompClient = StompClient(
-                config: StompConfig(
-                  url: wsUrl,
-                  onConnect: (StompFrame frame) {
-                    stompClient?.subscribe(
-                      destination: '/topic/reclamations/${item.id}',
-                      callback: (StompFrame frame) {
-                        if (frame.body != null) {
-                          try {
-                            final data = jsonDecode(frame.body!) as Map<String, dynamic>;
-                            final event = data['event'] as String?;
-                            if (event == 'MESSAGE_CREATED') {
-                              final msgJson = data['message'] as Map<String, dynamic>;
-                              final newMsg = ReclamationMessage.fromJson(msgJson);
-                              if (!messages.any((m) => m.id == newMsg.id) && context.mounted) {
-                                setSheetState(() {
-                                  messages.add(newMsg);
-                                });
-                                scrollToBottom();
-                              }
-                            }
-                          } catch (e) {
-                            debugPrint('Error parsing WebSocket frame: $e');
-                          }
-                        }
-                      },
-                    );
-                  },
-                  onWebSocketError: (dynamic error) => debugPrint('STOMP WS Error: $error'),
-                  onDisconnect: (frame) => debugPrint('STOMP WS Disconnected'),
-                ),
-              );
-              stompClient?.activate();
-            }
-
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.8,
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-              padding: EdgeInsets.fromLTRB(
-                16,
-                12,
-                16,
-                MediaQuery.of(context).viewInsets.bottom + 16,
-              ),
-              child: Column(
-                children: [
-                  // Handle/bar
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Header Row
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                      if (widget.user.role.trim().toLowerCase() == 'employee_s')
-                        IconButton(
-                          tooltip: 'Inviter un participant',
-                          icon: const Icon(
-                            Icons.person_add_alt_outlined, // Invite Button in discussion
-                            color: AppColors.primaryRed,
-                          ),
-                          onPressed: () => _showInviteParticipantsSheet(item),
-                        ),
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: AppColors.primaryRed.withAlpha(20),
-                        child: const Icon(
-                          Icons.forum_rounded,
-                          color: AppColors.primaryRed,
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                            const Text(
-                              'En ligne',
-                              style: TextStyle(
-                                  color: AppColors.success,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: item.color.withAlpha(20),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          item.status,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: item.color,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Divider(color: AppColors.border),
-                  // Description card
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryRed.withAlpha(12),
-                      border: Border.all(color: AppColors.primaryRed.withAlpha(30)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.description_outlined, size: 14, color: AppColors.primaryRed),
-                            SizedBox(width: 6),
-                            Text(
-                              'Description',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: AppColors.primaryRed,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          item.description ?? 'Aucune description.',
-                          style: const TextStyle(fontSize: 13, color: AppColors.textDark),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Message Area
-                  Expanded(
-                    child: isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : errorMsg != null
-                            ? Center(
-                                child: Text(
-                                  'Une erreur est survenue: $errorMsg',
-                                  textAlign: TextAlign.center,
-                                ),
-                              )
-                            : messages.isEmpty
-                                ? const Center(
-                                    child: Text(
-                                      'Aucun message. Commencez la discussion !',
-                                      style: TextStyle(color: AppColors.textLight),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    controller: scrollController,
-                                    itemCount: messages.length,
-                                    padding: const EdgeInsets.symmetric(vertical: 10),
-                                    itemBuilder: (context, idx) {
-                                      final msg = messages[idx];
-                                      final isMe = msg.sender.idUser == widget.user.id;
-                                      final timeStr =
-                                          "${msg.createdAt.hour.toString().padLeft(2, '0')}:${msg.createdAt.minute.toString().padLeft(2, '0')}";
-
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 4),
-                                        child: Column(
-                                          crossAxisAlignment: isMe
-                                              ? CrossAxisAlignment.end
-                                              : CrossAxisAlignment.start,
-                                          children: [
-                                            if (!isMe)
-                                              Padding(
-                                                padding: const EdgeInsets.only(left: 6, bottom: 2),
-                                                child: Text(
-                                                  msg.sender.fullName,
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                    color: AppColors.textLight,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            Row(
-                                              mainAxisAlignment: isMe
-                                                  ? MainAxisAlignment.end
-                                                  : MainAxisAlignment.start,
-                                              children: [
-                                                if (!isMe) ...[
-                                                  CircleAvatar(
-                                                    radius: 12,
-                                                    backgroundColor: AppColors.primaryRed.withAlpha(20),
-                                                    child: Text(
-                                                      msg.sender.prenom.isNotEmpty
-                                                          ? msg.sender.prenom[0].toUpperCase()
-                                                          : '?',
-                                                      style: const TextStyle(
-                                                        fontSize: 10,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: AppColors.primaryRed,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                ],
-                                                Flexible(
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                      horizontal: 14,
-                                                      vertical: 10,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      color: isMe
-                                                          ? AppColors.primaryRed
-                                                          : AppColors.border.withAlpha(140),
-                                                      borderRadius: BorderRadius.only(
-                                                        topLeft: const Radius.circular(16),
-                                                        topRight: const Radius.circular(16),
-                                                        bottomLeft: isMe
-                                                            ? const Radius.circular(16)
-                                                            : Radius.zero,
-                                                        bottomRight: isMe
-                                                            ? Radius.zero
-                                                            : const Radius.circular(16),
-                                                      ),
-                                                    ),
-                                                    constraints: BoxConstraints(
-                                                      maxWidth: MediaQuery.of(context).size.width * 0.7,
-                                                    ),
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        Text(
-                                                          msg.content,
-                                                          style: TextStyle(
-                                                            color: isMe
-                                                                ? Colors.white
-                                                                : AppColors.textDark,
-                                                            fontSize: 13,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(height: 4),
-                                                        Align(
-                                                          alignment: Alignment.bottomRight,
-                                                          child: Text(
-                                                            timeStr,
-                                                            style: TextStyle(
-                                                              color: isMe
-                                                                  ? Colors.white70
-                                                                  : AppColors.textLight,
-                                                              fontSize: 9,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Input Bar
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: msgController,
-                          decoration: InputDecoration(
-                            hintText: 'Écrire un message...',
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: const BorderSide(
-                                color: AppColors.border,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: const BorderSide(
-                                color: AppColors.border,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      isSending
-                          ? const SizedBox(
-                              width: 36,
-                              height: 36,
-                              child: Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            )
-                          : CircleAvatar(
-                              backgroundColor: AppColors.primaryRed,
-                              radius: 20,
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.send_rounded,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                                onPressed: () async {
-                                  final text = msgController.text.trim();
-                                  if (text.isEmpty) return;
-                                  msgController.clear();
-
-                                  setSheetState(() {
-                                    isSending = true;
-                                  });
-
-                                  try {
-                                    final newMsg = await _reclamationService.sendMessage(
-                                      item.id,
-                                      senderId: widget.user.id,
-                                      content: text,
-                                    );
-                                    setSheetState(() {
-                                      if (!messages.any((message) => message.id == newMsg.id)) {
-                                        messages.add(newMsg);
-                                      }
-                                      isSending = false;
-                                    });
-                                    scrollToBottom();
-                                  } catch (e) {
-                                    setSheetState(() {
-                                      isSending = false;
-                                    });
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Erreur: $e')),
-                                      );
-                                    }
-                                  }
-                                },
-                              ),
-                            ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    ).then((_) {
-      stompClient?.deactivate();
-    });
+    _navigatorKeys[_selectedIndex].currentState?.push(
+      MaterialPageRoute(
+        builder: (context) => ReclamationDiscussionView(
+          item: item,
+          user: widget.user,
+          reclamationService: _reclamationService,
+          onInviteParticipant: () => _showInviteParticipantsSheet(item),
+        ),
+      ),
+    );
   }
 
   void _showChatConversation(ConversationItem chat) {
-    final msgController = TextEditingController();
-    final List<Map<String, dynamic>> messages = [
-      {'sender': 'them', 'text': chat.lastMessage, 'time': 'Aujourd\'hui'},
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.7,
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-              padding: EdgeInsets.fromLTRB(
-                16,
-                12,
-                16,
-                MediaQuery.of(context).viewInsets.bottom + 16,
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: AppColors.primaryRed.withAlpha(20),
-                        child: const Icon(
-                          Icons.person_rounded,
-                          color: AppColors.primaryRed,
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              chat.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const Text(
-                              'En ligne',
-                              style: TextStyle(
-                                color: AppColors.success,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Divider(color: AppColors.border),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: messages.length,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      itemBuilder: (context, idx) {
-                        final msg = messages[idx];
-                        final isMe = msg['sender'] == 'me';
-                        return Align(
-                          alignment: isMe
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isMe
-                                  ? AppColors.primaryRed
-                                  : AppColors.border.withAlpha(140),
-                              borderRadius: BorderRadius.only(
-                                topLeft: const Radius.circular(16),
-                                topRight: const Radius.circular(16),
-                                bottomLeft: isMe
-                                    ? const Radius.circular(16)
-                                    : Radius.zero,
-                                bottomRight: isMe
-                                    ? Radius.zero
-                                    : const Radius.circular(16),
-                              ),
-                            ),
-                            constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width * 0.7,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  msg['text'],
-                                  style: TextStyle(
-                                    color: isMe
-                                        ? Colors.white
-                                        : AppColors.textDark,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Align(
-                                  alignment: Alignment.bottomRight,
-                                  child: Text(
-                                    msg['time'],
-                                    style: TextStyle(
-                                      color: isMe
-                                          ? Colors.white70
-                                          : AppColors.textLight,
-                                      fontSize: 9,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: msgController,
-                          decoration: InputDecoration(
-                            hintText: 'Écrire un message...',
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: const BorderSide(
-                                color: AppColors.border,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: const BorderSide(
-                                color: AppColors.border,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      CircleAvatar(
-                        backgroundColor: AppColors.primaryRed,
-                        child: IconButton(
-                          icon: const Icon(
-                            Icons.send_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                          onPressed: () {
-                            if (msgController.text.trim().isEmpty) return;
-                            setSheetState(() {
-                              messages.add({
-                                'sender': 'me',
-                                'text': msgController.text,
-                                'time': 'À l\'instant',
-                              });
-                            });
-                            msgController.clear();
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+    _navigatorKeys[_selectedIndex].currentState?.push(
+      MaterialPageRoute(
+        builder: (context) => ChatConversationView(chat: chat),
+      ),
     );
   }
 
@@ -1372,305 +815,21 @@ class _HomeViewState extends State<HomeView> {
       return;
     }
 
-    final titleController = TextEditingController();
-    final descController = TextEditingController();
-    String category = 'Carte bancaire';
-    String priority = 'Moyenne';
-    int? selectedEquipeId = equipes.first.id;
-    bool isSubmitting = false;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (sheetContext, setSheetState) {
-            Future<void> submit() async {
-              final objet = titleController.text.trim();
-              final description = descController.text.trim();
-              if (objet.isEmpty ||
-                  description.isEmpty ||
-                  selectedEquipeId == null) {
-                ScaffoldMessenger.of(sheetContext).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Veuillez remplir les champs et choisir une équipe.',
-                    ),
-                  ),
-                );
-                return;
-              }
-
-              setSheetState(() => isSubmitting = true);
-              try {
-                final reclamation = await _reclamationService.create(
-                  senderId: widget.user.id,
-                  objet: objet,
-                  type: category,
-                  description: description,
-                  priorite: priority == 'Haute'
-                      ? 'HAUTE'
-                      : (priority == 'Faible' ? 'BASSE' : 'NORMALE'),
-                  destinationType: 'EQUIPE',
-                  destinationId: selectedEquipeId,
-                );
-                if (!mounted) return;
-                setState(() {
-                  _mockComplaints.insert(0, _toComplaintItem(reclamation));
-                });
-                if (sheetContext.mounted) {
-                  Navigator.of(sheetContext).pop();
-                }
-                _showHomeMessage(
-                  context,
-                  'Réclamation ${reclamation.id} envoyée à l’équipe.',
-                );
-              } on ReclamationException catch (error) {
-                if (!sheetContext.mounted) return;
-                setSheetState(() => isSubmitting = false);
-                ScaffoldMessenger.of(
-                  sheetContext,
-                ).showSnackBar(SnackBar(content: Text(error.message)));
-              } catch (_) {
-                if (!sheetContext.mounted) return;
-                setSheetState(() => isSubmitting = false);
-                ScaffoldMessenger.of(sheetContext).showSnackBar(
-                  const SnackBar(
-                    content: Text('Impossible d’envoyer la réclamation.'),
-                  ),
-                );
-              }
-            }
-
-            return Container(
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-              padding: EdgeInsets.fromLTRB(
-                24,
-                20,
-                24,
-                MediaQuery.of(sheetContext).viewInsets.bottom + 24,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Nouvelle Réclamation',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textDark,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded),
-                          onPressed: isSubmitting
-                              ? null
-                              : () => Navigator.of(sheetContext).pop(),
-                        ),
-                      ],
-                    ),
-                    const Divider(color: AppColors.border),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: titleController,
-                      enabled: !isSubmitting,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Objet / Titre',
-                        hintText: 'Ex: Carte avalée, virement non reçu…',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: descController,
-                      enabled: !isSubmitting,
-                      minLines: 3,
-                      maxLines: 5,
-                      decoration: const InputDecoration(
-                        labelText: 'Description détaillée',
-                        hintText: 'Expliquez votre problème en détail…',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Catégorie',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      value: category,
-                      decoration: const InputDecoration(
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                      items:
-                          const [
-                            'Carte bancaire',
-                            'Virement/Paiement',
-                            'E-Banking',
-                            'Frais & Tarification',
-                            'Autre',
-                          ].map((value) {
-                            return DropdownMenuItem(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
-                      onChanged: isSubmitting
-                          ? null
-                          : (value) {
-                              if (value != null) {
-                                setSheetState(() => category = value);
-                              }
-                            },
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Urgence',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: ['Faible', 'Moyenne', 'Haute'].map((value) {
-                        final selected = priority == value;
-                        final color = value == 'Haute'
-                            ? AppColors.primaryRed
-                            : (value == 'Moyenne'
-                                  ? AppColors.secondaryOrange
-                                  : AppColors.success);
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: InkWell(
-                            onTap: isSubmitting
-                                ? null
-                                : () {
-                                    setSheetState(() => priority = value);
-                                  },
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? color.withAlpha(25)
-                                    : Colors.transparent,
-                                border: Border.all(
-                                  color: selected ? color : AppColors.border,
-                                  width: selected ? 2 : 1,
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                value,
-                                style: TextStyle(
-                                  color: selected
-                                      ? color
-                                      : AppColors.textLight,
-                                  fontWeight: selected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Équipe destinataire',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<int>(
-                      value: selectedEquipeId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.groups_outlined),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                      items: equipes.map((equipe) {
-                        return DropdownMenuItem<int>(
-                          value: equipe.id,
-                          child: Text(
-                            equipe.nom!,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: isSubmitting
-                          ? null
-                          : (value) {
-                              setSheetState(() => selectedEquipeId = value);
-                            },
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        disabledBackgroundColor: primaryColor.withAlpha(140),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: isSubmitting ? null : submit,
-                      child: isSubmitting
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'SOUMETTRE LA RÉCLAMATION',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            );
+    _navigatorKeys[_selectedIndex].currentState?.push(
+      MaterialPageRoute(
+        builder: (_) => NewReclamationView(
+          user: widget.user,
+          primaryColor: primaryColor,
+          equipes: equipes,
+          reclamationService: _reclamationService,
+          onReclamationCreated: (item) {
+            setState(() {
+              _mockComplaints.insert(0, item);
+            });
           },
-        );
-      },
+        ),
+      ),
     );
-
-    titleController.dispose();
-    descController.dispose();
   }
 }
 
@@ -1732,7 +891,7 @@ class _TopBar extends StatelessWidget {
         ),
         if (onAgencesPressed != null)
           IconButton(
-            tooltip: 'Gérer les agences',
+            tooltip: 'G+®rer les agences',
             onPressed: onAgencesPressed,
             icon: const Icon(Icons.account_balance_rounded),
           ),
@@ -1741,9 +900,10 @@ class _TopBar extends StatelessWidget {
           onPressed: onNotificationPressed,
           icon: notificationCount > 0
               ? Badge(
-                  label: Text('$notificationCount',
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 10)),
+                  label: Text(
+                    '$notificationCount',
+                    style: const TextStyle(color: Colors.white, fontSize: 10),
+                  ),
                   backgroundColor: config.primaryColor,
                   child: const Icon(Icons.notifications_none_rounded),
                 )
@@ -2520,5 +1680,3 @@ class _DashboardStat {
     this.color,
   );
 }
-
-

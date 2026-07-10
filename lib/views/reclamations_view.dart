@@ -165,10 +165,7 @@ class _ReclamationsViewState extends State<ReclamationsView> {
                           size: 42,
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          widget.error!,
-                          textAlign: TextAlign.center,
-                        ),
+                        Text(widget.error!, textAlign: TextAlign.center),
                         const SizedBox(height: 12),
                         FilledButton.icon(
                           onPressed: widget.onRefresh,
