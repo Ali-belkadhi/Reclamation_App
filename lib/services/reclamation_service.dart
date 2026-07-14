@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/reclamation.dart';
 import '../models/message_model.dart';
+import '../models/app_notification.dart';
+import 'auth_service.dart';
 
 class ReclamationException implements Exception {
   final String message;
@@ -23,6 +25,7 @@ abstract class ReclamationService {
 
   Future<List<ReclamationMessage>> findMessages(String reclamationId);
   Future<Set<String>> findParticipantUserIds(String reclamationId);
+  Future<List<AppNotification>> getNotifications(String idUser);
   Future<ReclamationMessage> sendMessage(String reclamationId, {
     required String senderId,
     required String content,
@@ -158,6 +161,28 @@ class ApiReclamationService implements ReclamationService {
         .whereType<String>()
         .where((id) => id.isNotEmpty)
         .toSet();
+  }
+
+  @override
+  Future<List<AppNotification>> getNotifications(String idUser) async {
+    try {
+      final Map<String, String> headers = Map.from(_headers);
+      if (ApiAuthService.currentToken != null) {
+        headers['Authorization'] = 'Bearer ${ApiAuthService.currentToken}';
+      }
+
+      final response = await _send(
+        () => http.get(
+          Uri.parse('${ApiConfig.baseUrl}/api/notifications/${Uri.encodeComponent(idUser)}'),
+          headers: headers,
+        ).timeout(_timeout),
+      );
+
+      final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+      return data.map((json) => AppNotification.fromJson(json)).toList();
+    } catch (e) {
+      throw ReclamationException('Erreur: $e');
+    }
   }
 
   @override

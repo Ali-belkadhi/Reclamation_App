@@ -20,6 +20,8 @@ abstract class AuthService {
 
 // Implémentation concrète de l'authentification via l'API REST
 class ApiAuthService implements AuthService {
+  static String? currentToken;
+
   @override
   Future<User> login(String email, String password) async {
     try {
@@ -37,6 +39,13 @@ class ApiAuthService implements AuthService {
 
       // 3. Gestion du statut de la réponse HTTP
       if (response.statusCode == 200 || response.statusCode == 201) {
+        // Extrait le token s'il est présent (habituellement sous 'token' ou 'accessToken')
+        if (data.containsKey('token')) {
+          currentToken = data['token'] as String?;
+        } else if (data.containsKey('accessToken')) {
+          currentToken = data['accessToken'] as String?;
+        }
+
         // En cas de succès, on extrait le nœud JSON 'user' et on le convertit en objet User typé
         final userJson = data['user'] as Map<String, dynamic>;
         return User.fromJson(userJson);

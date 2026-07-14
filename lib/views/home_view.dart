@@ -234,7 +234,7 @@ class _HomeViewState extends State<HomeView> {
                     MaterialPageRoute(
                       builder: (_) => NotificationView(
                         primaryColor: config.primaryColor,
-                        mockComplaints: _mockComplaints,
+                        idUser: widget.user.id,
                       ),
                     ),
                   );

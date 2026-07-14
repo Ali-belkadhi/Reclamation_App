@@ -1,29 +1,65 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'reclamations_view.dart'; // For ComplaintItem
+import '../models/app_notification.dart';
+import '../services/reclamation_service.dart';
 
-class NotificationView extends StatelessWidget {
+class NotificationView extends StatefulWidget {
   final Color primaryColor;
-  final List<ComplaintItem> mockComplaints;
+  final String idUser;
 
   const NotificationView({
     super.key,
     required this.primaryColor,
-    required this.mockComplaints,
+    required this.idUser,
   });
 
-  Color _statusColor(String status) {
-    final normalized = status.toLowerCase();
-    if (normalized.contains('résolu') || normalized.contains('resolu')) {
-      return AppColors.success;
-    }
-    if (normalized.contains('urgent') || normalized.contains('traiter')) {
-      return AppColors.primaryRed;
-    }
-    return AppColors.secondaryOrange;
-  }
+  @override
+  State<NotificationView> createState() => _NotificationViewState();
+}
+
+class _NotificationViewState extends State<NotificationView> {
+  bool _isLoading = true;
+  String? _error;
+  List<AppNotification> _notifications = [];
+  late final ReclamationService _service;
 
   @override
+  void initState() {
+    super.initState();
+    _service = ApiReclamationService();
+    _fetchNotifications();
+  }
+
+  Future<void> _fetchNotifications() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final notifs = await _service.getNotifications(widget.idUser);
+      if (mounted) {
+        setState(() {
+          _notifications = notifs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  IconData _iconForType(String type) {
+    if (type.contains('STATUS_CHANGED')) return Icons.sync_rounded;
+    if (type.contains('ASSIGNED')) return Icons.person_add_alt_1_rounded;
+    if (type.contains('CLOSED')) return Icons.check_circle_outline_rounded;
+    if (type.contains('MESSAGE')) return Icons.chat_bubble_outline_rounded;
+    return Icons.notifications_none_rounded;
+  }
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -34,7 +70,11 @@ class NotificationView extends StatelessWidget {
         elevation: 0,
         centerTitle: true,
       ),
-      body: mockComplaints.isEmpty
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(child: Text(_error!, style: const TextStyle(color: AppColors.primaryRed)))
+          : _notifications.isEmpty
           ? const Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -56,67 +96,73 @@ class NotificationView extends StatelessWidget {
                 ],
               ),
             )
-          : ListView.separated(
-              itemCount: mockComplaints.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, color: AppColors.border),
-              itemBuilder: (_, idx) {
-                final item = mockComplaints[idx];
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  leading: CircleAvatar(
-                    backgroundColor: primaryColor.withAlpha(30),
-                    child: Icon(item.icon, color: primaryColor, size: 20),
-                  ),
-                  title: Text(
-                    item.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                  subtitle: Text(
-                    item.meta,
-                    style: const TextStyle(
-                      color: AppColors.textLight,
-                      fontSize: 12,
-                    ),
-                  ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _statusColor(item.status).withAlpha(30),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      item.status,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: _statusColor(item.status),
-                        fontWeight: FontWeight.bold,
+          : RefreshIndicator(
+              onRefresh: _fetchNotifications,
+              child: ListView.separated(
+                  itemCount: _notifications.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, color: AppColors.border),
+                  itemBuilder: (_, idx) {
+                    final item = _notifications[idx];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      leading: CircleAvatar(
+                        backgroundColor: widget.primaryColor.withAlpha(30),
+                        child: Icon(_iconForType(item.type), color: widget.primaryColor, size: 20),
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
+                      title: Text(
+                        item.title,
+                        style: TextStyle(
+                          fontWeight: item.read ? FontWeight.normal : FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 4),
+                          Text(
+                            item.body,
+                            style: const TextStyle(
+                              color: AppColors.textLight,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.createdAt,
+                            style: const TextStyle(
+                              color: AppColors.textLight,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                      trailing: !item.read ? Container(
+                        width: 10, height: 10,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primaryRed,
+                          shape: BoxShape.circle,
+                        )
+                      ) : null,
+                    );
+                  },
+                ),
+          ),
     );
   }
 
   static void show(
     BuildContext context,
     Color primaryColor,
-    List<ComplaintItem> mockComplaints,
+    String idUser,
   ) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (ctx) => NotificationView(
           primaryColor: primaryColor,
-          mockComplaints: mockComplaints,
+          idUser: idUser,
         ),
       ),
     );
